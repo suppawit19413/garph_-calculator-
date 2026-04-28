@@ -3,281 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Data Studio - 13 Charts</title>
+    <title>Ultimate Data Studio - 13 Types</title>
+    <!-- Library Imports -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
-        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
-        .sidebar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-        .chart-card { background: white; border-radius: 1rem; padding: 1.25rem; border: 1px solid #e2e8f0; transition: transform 0.2s; }
-        .chart-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        .input-group { border-left: 4px solid #6366f1; background: #f1f5f9; padding: 1rem; border-radius: 0.5rem; position: relative; }
+        @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;600&display=swap');
+        body { font-family: 'Chakra Petch', sans-serif; background-color: #f1f5f9; }
+        .sidebar { background: white; border-right: 1px solid #e2e8f0; }
+        .chart-card { background: white; border-radius: 1.25rem; padding: 1.5rem; border: 1px solid #e2e8f0; height: 100%; transition: transform 0.2s; }
+        .chart-card:hover { transform: translateY(-3px); box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1); }
+        .ds-row { border-left: 4px solid #6366f1; background: #f8fafc; transition: all 0.2s; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="text-slate-800">
 
-    <!-- Sidebar สำหรับควบคุมข้อมูล (ออกแบบมาเพื่อ iPad) -->
-    <aside class="fixed top-0 left-0 h-full w-full lg:w-80 bg-white border-r border-slate-200 z-50 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300" id="sidebar">
+    <!-- Sidebar Control Panel -->
+    <aside class="fixed top-0 left-0 h-full w-full lg:w-96 sidebar z-50 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 shadow-2xl lg:shadow-none hide-scroll" id="sidebar">
         <div class="p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-indigo-600">⚙️ ตั้งค่าข้อมูล</h2>
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold text-indigo-600">📊 Data Editor</h2>
                 <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 text-3xl">&times;</button>
             </div>
 
-            <!-- Labels Input -->
-            <div class="mb-8">
-                <label class="block text-sm font-bold text-slate-500 mb-2 uppercase tracking-wider">ชื่อกลุ่ม (Labels)</label>
-                <textarea id="labelsInput" oninput="updateAllCharts()" class="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm" rows="2" placeholder="เช่น Lab 1, Lab 2, Lab 3">Python, Scala, C#, Java, PHP</textarea>
+            <!-- File Upload -->
+            <div class="mb-8 p-4 border-2 border-dashed border-slate-200 rounded-2xl hover:border-indigo-400 transition-colors text-center cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                <div class="text-3xl mb-2">📁</div>
+                <p class="text-xs font-bold text-slate-500 uppercase">อัปโหลด CSV / XLSX / PDF</p>
+                <input type="file" id="fileInput" class="hidden" accept=".csv, .xlsx, .xls, .pdf" onchange="handleFileUpload(event)">
             </div>
 
-            <!-- Datasets Section -->
-            <div class="space-y-4" id="datasetList">
-                <h3 class="text-sm font-bold text-slate-500 mb-2 uppercase tracking-wider">ชุดข้อมูล (Datasets)</h3>
-                <!-- ชุดข้อมูลจะถูกเพิ่มที่นี่ -->
+            <!-- Data Settings -->
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest">ชื่อกลุ่ม (Labels / แกน X)</label>
+                    <textarea id="labelsInput" oninput="refreshAll()" class="w-full p-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500 text-sm" rows="2">Lab 1, Lab 2, Lab 3, Lab 4, Lab 5</textarea>
+                </div>
+
+                <div id="datasetContainer" class="space-y-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">ชุดข้อมูล (Datasets)</h3>
+                    <!-- Rows injected here -->
+                </div>
+
+                <button onclick="addDatasetRow()" class="w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 text-indigo-600 font-bold text-sm hover:bg-indigo-50 transition-all">+ เพิ่มชุดข้อมูลใหม่</button>
             </div>
 
-            <button onclick="addDataset()" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all active:scale-95">
-                + เพิ่มชุดข้อมูลใหม่
-            </button>
-            
-            <button onclick="resetData()" class="w-full mt-3 text-slate-400 hover:text-rose-500 text-xs transition-all">
-                ล้างข้อมูลและเริ่มต้นใหม่
-            </button>
+            <div class="mt-10 pt-6 border-t border-slate-100">
+                <button onclick="resetData()" class="w-full text-slate-300 hover:text-rose-500 text-xs transition-colors">ล้างข้อมูลและรีเซ็ตค่าเริ่มต้น</button>
+            </div>
         </div>
     </aside>
 
-    <!-- ส่วนแสดงผลหลัก -->
-    <main class="lg:ml-80 min-h-screen p-4 lg:p-8">
-        <!-- Mobile Toggle -->
-        <div class="lg:hidden mb-6">
-            <button onclick="toggleSidebar()" class="w-full bg-white p-4 rounded-xl shadow-sm border border-slate-200 font-bold text-indigo-600">
-                📂 เปิดแผงควบคุมข้อมูล
-            </button>
-        </div>
-
-        <header class="mb-10 text-center lg:text-left">
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Data Studio 13 รูปแบบ</h1>
-            <p class="text-slate-500 mt-1">อ้างอิงจาก Python Matplotlib - ปรับแต่งและวิเคราะห์แบบเรียลไทม์</p>
+    <!-- Main Display -->
+    <main class="lg:ml-96 p-4 lg:p-10 min-h-screen">
+        <header class="flex justify-between items-center mb-10">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">13-Type Data Studio</h1>
+                <p class="text-slate-500">วิเคราะห์ข้อมูลอัจฉริยะแบบ Interactive บน iPad</p>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg">🔧 ข้อมูล</button>
         </header>
 
-        <!-- Grid กราฟทั้ง 13 แบบ -->
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">1. Grouped Bar Graph</h3>
-                <div class="h-60"><canvas id="groupedBar"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">2. Horizontal Bar Graph</h3>
-                <div class="h-60"><canvas id="horizontalBar"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">3. Stacked Bar Graph</h3>
-                <div class="h-60"><canvas id="stackedBar"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">4. Coloured Bar Graph</h3>
-                <div class="h-60"><canvas id="colouredBar"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">5. Standard Bar Chart</h3>
-                <div class="h-60"><canvas id="standardBar"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase text-center">6. Radar Chart</h3>
-                <div class="h-60"><canvas id="radarChart"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase text-center">7. Pie Chart</h3>
-                <div class="h-60"><canvas id="pieChart"></canvas></div>
-            </div>
-
-            <div class="chart-card md:col-span-2 xl:col-span-1">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">8. Heatmap (Matrix)</h3>
-                <div id="heatmap" class="grid gap-1 bg-slate-100 p-2 rounded-lg overflow-auto max-h-60"></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">9. Box Plot (Range)</h3>
-                <div class="h-60"><canvas id="boxPlot"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">10. Histogram</h3>
-                <div class="h-60"><canvas id="histogram"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">11. Area Chart</h3>
-                <div class="h-60"><canvas id="areaChart"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">12. Scatter Plot</h3>
-                <div class="h-60"><canvas id="scatterPlot"></canvas></div>
-            </div>
-
-            <div class="chart-card">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">13. Line Chart</h3>
-                <div class="h-60"><canvas id="lineChart"></canvas></div>
-            </div>
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">1. Grouped Bar Graph</h4><div class="h-64"><canvas id="c1"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">2. Line Chart</h4><div class="h-64"><canvas id="c2"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">3. Standard Bar Chart</h4><div class="h-64"><canvas id="c3"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase text-center">4. Pie Chart</h4><div class="h-64"><canvas id="c4"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">5. Heatmap Matrix</h4><div id="heatmap" class="grid gap-1 bg-slate-50 p-2 rounded-xl h-60 overflow-auto"></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">6. Stacked Bar Graph</h4><div class="h-64"><canvas id="c6"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">7. Horizontal Bar Graph</h4><div class="h-64"><canvas id="c7"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase text-center">8. Radar Chart</h4><div class="h-64"><canvas id="c8"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">9. Coloured Bar Graph</h4><div class="h-64"><canvas id="c9"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">10. Area Chart</h4><div class="h-64"><canvas id="c10"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">11. Box Plot (Visual Sim)</h4><div class="h-64"><canvas id="c11"></canvas></div></div>
+            
+            <div class="chart-card"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">12. Histogram</h4><div class="h-64"><canvas id="c12"></canvas></div></div>
+            
+            <div class="chart-card md:col-span-2 xl:col-span-1"><h4 class="text-xs font-bold text-indigo-500 mb-4 uppercase">13. Scatter Plot</h4><div class="h-64"><canvas id="c13"></canvas></div></div>
 
         </div>
     </main>
 
     <script>
-        const chartInstances = {};
-        const palette = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f43f5e'];
+        const charts = {};
+        const colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6', '#64748b'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('-translate-x-full');
         }
 
-        function addDataset(label = "ชุดข้อมูลใหม่", values = "45, 10, 15, 30, 22") {
-            const container = document.getElementById('datasetList');
-            const id = Date.now();
+        // --- File Parsing Logic ---
+
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            if (ext === 'csv') {
+                Papa.parse(file, { complete: (res) => importToEditor(res.data) });
+            } else if (ext === 'xlsx' || ext === 'xls') {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const wb = XLSX.read(evt.target.result, { type: 'binary' });
+                    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+                    importToEditor(data);
+                };
+                reader.readAsBinaryString(file);
+            } else if (ext === 'pdf') {
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    const pdf = await pdfjsLib.getDocument({ data: evt.target.result }).promise;
+                    let text = "";
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        text += content.items.map(it => it.str).join(' ') + '\n';
+                    }
+                    parsePDFText(text);
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function importToEditor(rows) {
+            if (rows.length < 1) return;
+            const labels = rows[0].filter(it => it !== null && it !== "").slice(1);
+            document.getElementById('labelsInput').value = labels.join(', ');
+            document.getElementById('datasetContainer').innerHTML = '';
+            rows.slice(1).forEach(row => {
+                if (row.length > 1) addDatasetRow(row[0], row.slice(1).join(', '));
+            });
+            refreshAll();
+        }
+
+        function parsePDFText(text) {
+            const lines = text.split('\n');
+            const foundData = [];
+            lines.forEach((line, idx) => {
+                const nums = line.match(/-?\d+(\.\d+)?/g);
+                if (nums && nums.length >= 3) {
+                    foundData.push({ name: `PDF Set ${idx+1}`, val: nums.join(', ') });
+                }
+            });
+            if (foundData.length) {
+                document.getElementById('datasetContainer').innerHTML = '';
+                foundData.forEach(d => addDatasetRow(d.name, d.val));
+                refreshAll();
+            }
+        }
+
+        // --- Editor Logic ---
+
+        function addDatasetRow(name = "Dataset", values = "10, 20, 30, 40, 50") {
+            const container = document.getElementById('datasetContainer');
+            const id = Math.random().toString(36).substr(2, 9);
             const div = document.createElement('div');
-            div.className = "input-group relative";
-            div.id = `ds-${id}`;
+            div.className = "ds-row p-4 rounded-xl relative shadow-sm";
+            div.id = id;
             div.innerHTML = `
-                <button onclick="removeDataset(${id})" class="absolute top-1 right-2 text-slate-400 hover:text-rose-500 font-bold">&times;</button>
-                <input type="text" value="${label}" oninput="updateAllCharts()" class="ds-name w-full bg-transparent font-bold text-indigo-700 text-sm mb-1 focus:outline-none">
-                <input type="text" value="${values}" oninput="updateAllCharts()" class="ds-data w-full bg-white p-2 rounded border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-500">
+                <button onclick="document.getElementById('${id}').remove(); refreshAll();" class="absolute top-1 right-2 text-slate-300 hover:text-rose-500">&times;</button>
+                <input type="text" value="${name}" oninput="refreshAll()" class="ds-name w-full bg-transparent font-bold text-indigo-600 text-xs mb-1 focus:outline-none">
+                <input type="text" value="${values}" oninput="refreshAll()" class="ds-data w-full bg-white p-2 rounded border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-400">
             `;
             container.appendChild(div);
-            updateAllCharts();
+            refreshAll();
         }
 
-        function removeDataset(id) {
-            document.getElementById(`ds-${id}`).remove();
-            updateAllCharts();
-        }
-
-        function getInputs() {
+        function getChartData() {
             const labels = document.getElementById('labelsInput').value.split(',').map(s => s.trim());
             const datasets = [];
-            document.querySelectorAll('.input-group').forEach((group, i) => {
-                const label = group.querySelector('.ds-name').value;
-                const data = group.querySelector('.ds-data').value.split(',').map(Number);
+            document.querySelectorAll('.ds-row').forEach((row, i) => {
+                const label = row.querySelector('.ds-name').value;
+                const data = row.querySelector('.ds-data').value.split(',').map(Number);
                 datasets.push({
-                    label: label,
-                    data: data,
-                    backgroundColor: palette[i % palette.length],
-                    borderColor: palette[i % palette.length],
-                    borderWidth: 2,
-                    tension: 0.4,
-                    pointRadius: 4
+                    label, data,
+                    backgroundColor: colors[i % colors.length],
+                    borderColor: colors[i % colors.length],
+                    borderWidth: 2, tension: 0.4, pointRadius: 4, fill: false
                 });
             });
             return { labels, datasets };
         }
 
-        function renderChart(id, type, labels, datasets, options = {}) {
-            if (chartInstances[id]) {
-                chartInstances[id].data.labels = labels;
-                chartInstances[id].data.datasets = datasets;
-                chartInstances[id].update('none');
+        // --- Chart Rendering ---
+
+        function render(id, type, labels, datasets, options = {}) {
+            if (charts[id]) {
+                charts[id].data.labels = labels;
+                charts[id].data.datasets = datasets;
+                charts[id].update('none');
             } else {
                 const ctx = document.getElementById(id).getContext('2d');
-                chartInstances[id] = new Chart(ctx, {
-                    type,
-                    data: { labels, datasets },
+                charts[id] = new Chart(ctx, {
+                    type, data: { labels, datasets },
                     options: { 
                         responsive: true, 
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: datasets.length < 5, labels: { boxWidth: 12, font: { size: 10 } } } },
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { labels: { font: { family: 'Chakra Petch', size: 10 } } } },
                         ...options 
                     }
                 });
             }
         }
 
-        function renderHeatmap(labels, datasets) {
-            const container = document.getElementById('heatmap');
-            container.innerHTML = '';
-            container.style.gridTemplateColumns = `repeat(${labels.length}, 1fr)`;
-            
-            datasets.forEach(ds => {
-                ds.data.forEach((val, i) => {
-                    const cell = document.createElement('div');
-                    const intensity = Math.min(val / 100, 1);
-                    cell.className = 'h-10 flex items-center justify-center text-[10px] font-bold text-white rounded-sm';
-                    cell.style.backgroundColor = ds.backgroundColor.replace(')', `, ${intensity})`).replace('rgb', 'rgba');
-                    cell.innerText = val;
-                    container.appendChild(cell);
-                });
-            });
-        }
-
-        function updateAllCharts() {
-            const { labels, datasets } = getInputs();
+        function refreshAll() {
+            const { labels, datasets } = getChartData();
             if (!datasets.length || !labels.length) return;
 
             // 1. Grouped Bar
-            renderChart('groupedBar', 'bar', labels, datasets);
-
-            // 2. Horizontal Bar
-            renderChart('horizontalBar', 'bar', labels, datasets, { indexAxis: 'y' });
-
-            // 3. Stacked Bar
-            renderChart('stackedBar', 'bar', labels, datasets, { scales: { x: { stacked: true }, y: { stacked: true } } });
-
-            // 4. Coloured Bar (ชุดข้อมูลแรกใช้สีแยกแต่ละแท่ง)
-            const colouredData = [{
-                ...datasets[0],
-                backgroundColor: palette.slice(0, labels.length)
-            }];
-            renderChart('colouredBar', 'bar', labels, colouredData, { plugins: { legend: { display: false } } });
-
-            // 5. Standard Bar
-            renderChart('standardBar', 'bar', labels, [datasets[0]]);
-
-            // 6. Radar
-            renderChart('radarChart', 'radar', labels, datasets.map(d => ({ ...d, fill: true, backgroundColor: d.backgroundColor.replace(')', ', 0.2)').replace('rgb', 'rgba') })));
-
-            // 7. Pie (รวมยอดแต่ละชุด)
-            renderChart('pieChart', 'pie', datasets.map(d => d.label), [{
-                data: datasets.map(d => d.data.reduce((a, b) => a + b, 0)),
-                backgroundColor: palette
-            }]);
-
-            // 8. Heatmap
-            renderHeatmap(labels, datasets);
-
-            // 9. Box Plot Look (Floating Bar)
-            const boxData = datasets.map(d => ({
-                label: d.label,
-                data: d.data.map(v => [v - 5, v + 5]), // จำลองช่วงความแปรปรวน
-                backgroundColor: d.backgroundColor
+            render('c1', 'bar', labels, datasets);
+            
+            // 2. Line Chart
+            render('c2', 'line', labels, datasets);
+            
+            // 3. Standard Bar (ชุดที่ 1)
+            render('c3', 'bar', labels, [datasets[0]]);
+            
+            // 4. Pie Chart (ชุดที่ 1)
+            render('c4', 'pie', labels, [{...datasets[0], backgroundColor: colors}]);
+            
+            // 5. Heatmap (Matrix Look)
+            const hm = document.getElementById('heatmap');
+            hm.innerHTML = '';
+            hm.style.gridTemplateColumns = `repeat(${labels.length}, 1fr)`;
+            datasets.forEach(ds => ds.data.forEach(v => {
+                const cell = document.createElement('div');
+                cell.className = 'h-10 flex items-center justify-center text-[10px] text-white font-bold rounded';
+                const opacity = Math.min(v / 100, 1);
+                cell.style.backgroundColor = ds.backgroundColor.replace('rgb', 'rgba').replace(')', `, ${opacity})`);
+                cell.innerText = v;
+                hm.appendChild(cell);
             }));
-            renderChart('boxPlot', 'bar', labels, boxData);
 
-            // 10. Histogram
-            renderChart('histogram', 'bar', labels, datasets, { barPercentage: 1.2, categoryPercentage: 1.0 });
-
-            // 11. Area
-            renderChart('areaChart', 'line', labels, datasets.map(d => ({ ...d, fill: true, backgroundColor: d.backgroundColor.replace(')', ', 0.1)').replace('rgb', 'rgba') })));
-
-            // 12. Scatter
-            const scatterData = datasets[0].data.map((v, i) => ({ x: i + 1, y: v }));
-            renderChart('scatterPlot', 'scatter', labels, [{ label: 'จุดข้อมูล', data: scatterData, backgroundColor: palette[0] }]);
-
-            // 13. Line
-            renderChart('lineChart', 'line', labels, datasets);
+            // 6. Stacked Bar
+            render('c6', 'bar', labels, datasets, { scales: { x: { stacked: true }, y: { stacked: true } } });
+            
+            // 7. Horizontal Bar
+            render('c7', 'bar', labels, datasets, { indexAxis: 'y' });
+            
+            // 8. Radar Chart
+            render('c8', 'radar', labels, datasets.map(d => ({...d, fill: true, backgroundColor: d.backgroundColor + '33'})));
+            
+            // 9. Coloured Bar (ชุดที่ 1 แยกสีรายแท่ง)
+            render('c9', 'bar', labels, [{...datasets[0], backgroundColor: colors.slice(0, labels.length)}]);
+            
+            // 10. Area Chart
+            render('c10', 'line', labels, datasets.map(d => ({...d, fill: true, backgroundColor: d.backgroundColor + '22'})));
+            
+            // 11. Box Plot Sim (Floating Bar)
+            render('c11', 'bar', labels, datasets.map(d => ({...d, data: d.data.map(v => [v-10, v+10])})));
+            
+            // 12. Histogram
+            render('c12', 'bar', labels, datasets, { barPercentage: 1.25, categoryPercentage: 1.0 });
+            
+            // 13. Scatter Plot (Dataset 1 as points)
+            const scatterData = datasets[0].data.map((v, i) => ({x: i + 1, y: v}));
+            render('c13', 'scatter', labels, [{ label: datasets[0].label, data: scatterData, backgroundColor: datasets[0].backgroundColor }]);
         }
 
         function resetData() {
-            document.getElementById('datasetList').innerHTML = '';
+            document.getElementById('datasetContainer').innerHTML = '';
             document.getElementById('labelsInput').value = "Lab 1, Lab 2, Lab 3, Lab 4, Lab 5";
-            addDataset("Team A", "60, 75, 56, 62, 58");
-            addDataset("Team B", "55, 68, 80, 73, 55");
+            addDatasetRow("Team A", "60, 75, 56, 62, 58");
+            addDatasetRow("Team B", "55, 68, 80, 73, 55");
         }
 
         window.onload = resetData;
